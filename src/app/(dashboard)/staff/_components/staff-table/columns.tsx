@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Typography from "@/components/ui/typography";
 import { Skeleton } from "@/components/ui/skeleton";
-import noProfilePicture from "public/assets/no-profile-picture.jpg";
+
+const noProfilePicture = "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=200";
 
 import { TableSwitch } from "@/components/shared/table/TableSwitch";
 import { ImagePlaceholder } from "@/components/shared/ImagePlaceholder";

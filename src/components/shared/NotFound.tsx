@@ -3,17 +3,18 @@ import Image from "next/image";
 import { ExternalLink } from "lucide-react";
 
 import Typography from "@/components/ui/typography";
-import notFoundImg from "public/assets/not-found.png";
 
 export function NotFound({ page = "Page" }: { page?: string }) {
   return (
     <div className="py-16 sm:py-20 w-full h-full grid place-items-center px-2 max-w-3xl mx-auto">
       <div>
         <Image
-          src={notFoundImg}
+          src="https://images.pexels.com/photos/4439444/pexels-photo-4439444.jpeg?auto=compress&cs=tinysrgb&w=600"
           alt={`${page} not found`}
+          width={600}
+          height={400}
           priority
-          placeholder="blur"
+          unoptimized
           className="w-full"
         />
 

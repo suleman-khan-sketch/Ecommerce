@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 
-import updatePasswordImg from "public/assets/update-password.jpg";
 import AuthFormTemplate from "@/components/shared/auth/AuthFormTemplate";
 import PasswordUpdateForm from "./_components/PasswordUpdateForm";
 
@@ -10,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function Page() {
   return (
-    <AuthFormTemplate image={updatePasswordImg}>
+    <AuthFormTemplate image="https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=800">
       <PasswordUpdateForm />
     </AuthFormTemplate>
   );

@@ -1,7 +1,7 @@
-import Image, { StaticImageData } from "next/image";
+import Image from "next/image";
 
 type Props = {
-  image: StaticImageData | string;
+  image: string;
   children: React.ReactNode;
 };
 
@@ -14,9 +14,9 @@ export default function AuthFormTemplate({ image, children }: Props) {
             <Image
               src={image}
               alt=""
-              placeholder="blur"
               className="w-full object-cover object-center brightness-90"
               fill
+              unoptimized
             />
           </div>
 
