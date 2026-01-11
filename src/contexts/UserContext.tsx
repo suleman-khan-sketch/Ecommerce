@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 
@@ -40,17 +40,22 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [supabase] = useState(() => createBrowserClient());
+  const supabaseRef = useRef(createBrowserClient());
   const router = useRouter();
+  const isMountedRef = useRef(true);
+
+  const supabase = supabaseRef.current;
 
   const fetchProfile = useCallback(async (currentUser: User | null) => {
-    if (!currentUser) {
+    if (!currentUser || !isMountedRef.current) {
       setProfile(null);
       return;
     }
 
     try {
       const { data, error } = await supabase.rpc("get_my_profile");
+
+      if (!isMountedRef.current) return;
 
       if (error) {
         console.error("Error fetching profile:", error);
@@ -64,15 +69,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
       }
     } catch (error) {
-      console.error("Error fetching profile:", error);
-      setProfile(null);
+      if (isMountedRef.current) {
+        console.error("Error fetching profile:", error);
+        setProfile(null);
+      }
     }
   }, [supabase]);
 
   const refreshUser = useCallback(async () => {
+    if (!isMountedRef.current) return;
+
     setIsLoading(true);
     try {
       const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+
+      if (!isMountedRef.current) return;
 
       if (error) {
         console.error("Error getting user:", error);
@@ -90,11 +101,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
       }
     } catch (error) {
-      console.error("Error refreshing user:", error);
-      setUser(null);
-      setProfile(null);
+      if (isMountedRef.current) {
+        console.error("Error refreshing user:", error);
+        setUser(null);
+        setProfile(null);
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [supabase, fetchProfile]);
 
@@ -111,16 +126,22 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, router]);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     refreshUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          await fetchProfile(currentUser);
-          router.refresh();
+          (async () => {
+            await fetchProfile(currentUser);
+            if (isMountedRef.current) {
+              router.refresh();
+            }
+          })();
         } else if (event === "SIGNED_OUT") {
           setProfile(null);
           router.refresh();
@@ -131,6 +152,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => {
+      isMountedRef.current = false;
       subscription.unsubscribe();
     };
   }, [supabase, router, refreshUser, fetchProfile]);
