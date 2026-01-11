@@ -5,9 +5,17 @@ import { NextResponse } from "next/server";
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const allCookies = cookieStore.getAll();
 
-    console.log("[Debug-Auth] Cookies available:", cookieStore.getAll().map(c => c.name));
+    console.log("[Debug-Auth] All cookies:", allCookies.map(c => c.name));
+
+    const supabaseCookies = allCookies.filter(c =>
+      c.name.includes('supabase') ||
+      c.name.includes('sb-') ||
+      c.name.includes('auth')
+    );
+
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
@@ -15,7 +23,8 @@ export async function GET() {
       return NextResponse.json({
         error: "Session Error",
         message: sessionError.message,
-        details: sessionError,
+        all_cookies: allCookies.map(c => c.name),
+        supabase_cookies: supabaseCookies.map(c => ({ name: c.name, length: c.value.length })),
       }, { status: 500 });
     }
 
@@ -23,6 +32,11 @@ export async function GET() {
       return NextResponse.json({
         authenticated: false,
         message: "No active session found",
+        debug: {
+          total_cookies: allCookies.length,
+          all_cookie_names: allCookies.map(c => c.name),
+          supabase_cookies: supabaseCookies.map(c => ({ name: c.name, length: c.value.length })),
+        },
       });
     }
 
@@ -36,7 +50,6 @@ export async function GET() {
           email: session.user.email,
         },
         profile_error: profileError.message,
-        profile_error_details: profileError,
       }, { status: 500 });
     }
 

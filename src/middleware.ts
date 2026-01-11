@@ -14,6 +14,7 @@ export async function middleware(req: NextRequest) {
   });
 
   const pathname = req.nextUrl.pathname;
+  const isApiRoute = pathname.startsWith("/api");
 
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
   const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route));
@@ -25,6 +26,10 @@ export async function middleware(req: NextRequest) {
   try {
     const supabase = createMiddlewareClient({ req, res });
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (isApiRoute) {
+      return res;
+    }
 
     if (sessionError) {
       console.error("[Middleware] Session error:", sessionError.message);
@@ -117,6 +122,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|auth|.*\\..*|assets).*)",
+    "/((?!_next/static|_next/image|favicon.ico|auth/callback|.*\\..*|assets).*)",
   ],
 };
