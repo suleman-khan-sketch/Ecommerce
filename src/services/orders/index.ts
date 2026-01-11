@@ -7,6 +7,8 @@ import {
   FetchOrdersParams,
   FetchOrdersResponse,
   OrderDetails,
+  OrderStatus,
+  OrderMethod,
 } from "./types";
 
 export async function fetchOrders(
@@ -35,11 +37,11 @@ export async function fetchOrders(
   }
 
   if (status) {
-    query = query.eq("status", status);
+    query = query.eq("status", status as OrderStatus);
   }
 
   if (method) {
-    query = query.eq("payment_method", method);
+    query = query.eq("payment_method", method as OrderMethod);
   }
 
   if (startDate) {
@@ -56,7 +58,7 @@ export async function fetchOrders(
 
   query = query.order("created_at", { ascending: false });
 
-  const paginatedOrders = await queryPaginatedTable<Order, "orders">({
+  const paginatedOrders = await queryPaginatedTable<Order>({
     name: "orders",
     page,
     limit,
