@@ -74,8 +74,11 @@ async function getFeaturedProducts(): Promise<Product[]> {
 
   if (error || !products) {
     console.error("Error fetching featured products:", error);
+    console.error("Error details:", JSON.stringify(error, null, 2));
     return [];
   }
+
+  console.log("Fetched featured products count:", products.length);
 
   return products.map((p) => ({
     id: p.id,

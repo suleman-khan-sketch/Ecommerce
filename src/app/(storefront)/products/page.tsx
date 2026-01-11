@@ -91,8 +91,11 @@ async function getProducts(params: {
 
   if (error) {
     console.error("Error fetching products:", error);
+    console.error("Error details:", JSON.stringify(error, null, 2));
     return { products: [], categories: categories || [] };
   }
+
+  console.log("Fetched products count:", products?.length || 0);
 
   const mappedProducts: Product[] = (products || []).map((p) => ({
     id: p.id,

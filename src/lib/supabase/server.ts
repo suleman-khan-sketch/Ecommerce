@@ -18,18 +18,31 @@ export const createServerClient = async () => {
     return createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
       },
       global: {
         headers: cookieString ? {
           cookie: cookieString,
-        } : {},
+          apikey: supabaseAnonKey,
+        } : {
+          apikey: supabaseAnonKey,
+        },
       },
     });
   } catch (error) {
-    // Fallback for environments where cookies() is not available
+    // Fallback for environments where cookies() is not available (preview mode)
+    // This ensures the client authenticates as 'anon' role for RLS
     return createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+      global: {
+        headers: {
+          apikey: supabaseAnonKey,
+        },
       },
     });
   }
