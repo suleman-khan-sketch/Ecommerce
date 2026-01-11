@@ -18,8 +18,13 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
+  let defaultOpen = true;
+  try {
+    const cookieStore = await cookies();
+    defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
+  } catch {
+    defaultOpen = true;
+  }
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 import { Database } from "@/types/supabase";
 
-export type UserRole = "admin" | "customer";
+export type UserRole = "admin" | "super_admin" | "cashier" | "customer";
 
 type UserProfile = {
   name: string | null;

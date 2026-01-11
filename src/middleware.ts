@@ -62,10 +62,9 @@ export async function middleware(req: NextRequest) {
     }
 
     const userRole = profile?.role;
+    const adminRoles = ["admin", "super_admin"];
 
-    // Only admin role can access admin routes
-    if (userRole !== "admin") {
-      // User is not admin, redirect to home
+    if (!adminRoles.includes(userRole)) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 

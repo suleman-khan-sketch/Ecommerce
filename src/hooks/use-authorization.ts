@@ -1,37 +1,38 @@
 import { useUser, UserRole } from "@/contexts/UserContext";
 
-// Simplified permissions: admin can do everything, customer has no admin access
+const adminRoles = ["admin", "super_admin"] as const;
+
 const permissions = {
   orders: {
-    canChangeStatus: ["admin"],
-    canPrint: ["admin"],
+    canChangeStatus: adminRoles,
+    canPrint: adminRoles,
   },
   categories: {
-    canCreate: ["admin"],
-    canDelete: ["admin"],
-    canEdit: ["admin"],
-    canTogglePublished: ["admin"],
+    canCreate: adminRoles,
+    canDelete: adminRoles,
+    canEdit: adminRoles,
+    canTogglePublished: adminRoles,
   },
   coupons: {
-    canCreate: ["admin"],
-    canDelete: ["admin"],
-    canEdit: ["admin"],
-    canTogglePublished: ["admin"],
+    canCreate: adminRoles,
+    canDelete: adminRoles,
+    canEdit: adminRoles,
+    canTogglePublished: adminRoles,
   },
   customers: {
-    canDelete: ["admin"],
-    canEdit: ["admin"],
+    canDelete: adminRoles,
+    canEdit: adminRoles,
   },
   products: {
-    canCreate: ["admin"],
-    canDelete: ["admin"],
-    canEdit: ["admin"],
-    canTogglePublished: ["admin"],
+    canCreate: adminRoles,
+    canDelete: adminRoles,
+    canEdit: adminRoles,
+    canTogglePublished: adminRoles,
   },
   staff: {
-    canDelete: ["admin"],
-    canEdit: ["admin"],
-    canTogglePublished: ["admin"],
+    canDelete: adminRoles,
+    canEdit: adminRoles,
+    canTogglePublished: adminRoles,
   },
 } as const;
 
@@ -47,8 +48,8 @@ export function useAuthorization() {
   ): boolean => {
     if (isLoading || !profile || !profile.role) return false;
 
-    const allowedRoles = permissions[feature][action];
-    return (allowedRoles as UserRole[]).includes(profile.role);
+    const allowedRoles = permissions[feature][action] as readonly string[];
+    return allowedRoles.includes(profile.role);
   };
 
   const isSelf = (staffId: string) => {
