@@ -5,8 +5,11 @@ import { Database } from "@/types/supabase";
 export const createServerClient = async () => {
   try {
     const cookieStore = await cookies();
-    return createServerComponentClient<Database>({ cookies: () => cookieStore });
-  } catch {
+    return createServerComponentClient<Database>({
+      cookies: () => cookieStore,
+    });
+  } catch (error) {
+    console.error("[Server Client] Error creating server client:", error);
     const { createClient } = await import("@supabase/supabase-js");
     return createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

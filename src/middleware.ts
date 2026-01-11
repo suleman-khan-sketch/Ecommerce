@@ -23,10 +23,11 @@ export async function middleware(req: NextRequest) {
 
   try {
     const supabase = createMiddlewareClient({ req, res });
+
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
     if (sessionError) {
-      console.error("Session error:", sessionError);
+      console.error("[Middleware] Session error:", sessionError.message);
     }
 
     const isLoggedIn = !!session?.user;
@@ -37,28 +38,39 @@ export async function middleware(req: NextRequest) {
 
     if (isAdminRoute) {
       if (!isLoggedIn) {
+        console.log("[Middleware] No session found for admin route, redirecting to login");
         const loginUrl = new URL("/login", req.url);
         loginUrl.searchParams.set("redirect_to", pathname);
         return NextResponse.redirect(loginUrl);
       }
 
+      console.log("[Middleware] User logged in, checking profile for:", session.user.email);
+
       const { data: profile, error: profileError } = await supabase.rpc("get_my_profile");
 
       if (profileError) {
-        console.error("Profile error:", profileError);
+        console.error("[Middleware] Profile RPC error:", profileError.message);
+        console.error("[Middleware] Profile RPC details:", JSON.stringify(profileError));
       }
 
+      console.log("[Middleware] Profile data:", JSON.stringify(profile));
+
       if (!profile) {
+        console.log("[Middleware] No profile found, redirecting to home");
         return NextResponse.redirect(new URL("/", req.url));
       }
 
       const userRole = profile?.role;
       const adminRoles = ["admin", "super_admin"];
 
+      console.log("[Middleware] User role:", userRole);
+
       if (!adminRoles.includes(userRole)) {
+        console.log("[Middleware] User role not authorized for admin access");
         return NextResponse.redirect(new URL("/", req.url));
       }
 
+      console.log("[Middleware] Admin access granted");
       return res;
     }
 
@@ -77,7 +89,12 @@ export async function middleware(req: NextRequest) {
 
     return res;
   } catch (error) {
-    console.error("Middleware error:", error);
+    console.error("[Middleware] Unexpected error:", error);
+    if (isAdminRoute || isProtectedRoute) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("redirect_to", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
     return res;
   }
 }
