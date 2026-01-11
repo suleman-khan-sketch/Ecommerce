@@ -30,21 +30,33 @@ export async function middleware(req: NextRequest) {
       console.error("[Middleware] Session error:", sessionError.message);
     }
 
-    const isLoggedIn = !!session?.user;
+    let activeSession = session;
+
+    if (!session || sessionError) {
+      console.log("[Middleware] No session or error, attempting to get user");
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      if (!userError && user) {
+        console.log("[Middleware] User found via getUser():", user.email);
+        activeSession = { user } as any;
+      }
+    }
+
+    const isLoggedIn = !!activeSession?.user;
 
     if (isLoggedIn && isAuthRoute) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 
     if (isAdminRoute) {
-      if (!isLoggedIn) {
+      if (!isLoggedIn || !activeSession) {
         console.log("[Middleware] No session found for admin route, redirecting to login");
         const loginUrl = new URL("/login", req.url);
         loginUrl.searchParams.set("redirect_to", pathname);
         return NextResponse.redirect(loginUrl);
       }
 
-      console.log("[Middleware] User logged in, checking profile for:", session.user.email);
+      console.log("[Middleware] User logged in, checking profile for:", activeSession.user.email);
 
       const { data: profile, error: profileError } = await supabase.rpc("get_my_profile");
 
