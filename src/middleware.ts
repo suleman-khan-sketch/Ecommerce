@@ -7,7 +7,12 @@ const authRoutes = ["/login", "/signup", "/forgot-password", "/update-password"]
 const publicRoutes = ["/", "/products", "/cart"];
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+  let res = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  });
+
   const pathname = req.nextUrl.pathname;
 
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
@@ -17,13 +22,8 @@ export async function middleware(req: NextRequest) {
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   ) || pathname === "/";
 
-  if (isPublicRoute && !isAdminRoute && !isProtectedRoute) {
-    return res;
-  }
-
   try {
     const supabase = createMiddlewareClient({ req, res });
-
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
     if (sessionError) {
@@ -43,6 +43,10 @@ export async function middleware(req: NextRequest) {
     }
 
     const isLoggedIn = !!activeSession?.user;
+
+    if (isPublicRoute && !isAdminRoute && !isProtectedRoute) {
+      return res;
+    }
 
     if (isLoggedIn && isAuthRoute) {
       return NextResponse.redirect(new URL("/", req.url));

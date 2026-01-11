@@ -6,7 +6,8 @@ import { loginFormSchema } from "@/app/(authentication)/login/_components/schema
 import validateFormData from "@/helpers/validateFormData";
 
 export async function POST(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
+  const cookieStore = await cookies();
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
   const { email, password } = await request.json();
 
@@ -42,6 +43,8 @@ export async function POST(request: Request) {
   console.log("[Sign-In] Login successful for:", email);
   console.log("[Sign-In] Session created:", !!data.session);
   console.log("[Sign-In] User ID:", data.user?.id);
+  console.log("[Sign-In] Access token exists:", !!data.session?.access_token);
+  console.log("[Sign-In] Refresh token exists:", !!data.session?.refresh_token);
 
   const { data: profile, error: profileError } = await supabase.rpc("get_my_profile");
 
@@ -50,6 +53,8 @@ export async function POST(request: Request) {
   } else {
     console.log("[Sign-In] Profile fetched:", JSON.stringify(profile));
   }
+
+  console.log("[Sign-In] Current cookies:", cookieStore.getAll().map(c => ({ name: c.name, value: c.value.substring(0, 20) + '...' })));
 
   return NextResponse.json({ success: true });
 }

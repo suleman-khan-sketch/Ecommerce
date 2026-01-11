@@ -4,7 +4,10 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+
+    console.log("[Debug-Auth] Cookies available:", cookieStore.getAll().map(c => c.name));
 
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
