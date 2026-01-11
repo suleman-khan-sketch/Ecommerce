@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import axios from "axios";
+import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { createBrowserClient } from "@/lib/supabase/client";
+import { useMutation } from "@tanstack/react-query";
 import { useUser } from "@/contexts/UserContext";
 import {
   Form,
@@ -31,8 +32,6 @@ export default function CustomerLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refreshUser } = useUser();
-  const [isPending, setIsPending] = useState(false);
-  const [supabase] = useState(() => createBrowserClient());
 
   const redirectTo = searchParams.get("redirect_to") || "/";
 
@@ -44,19 +43,11 @@ export default function CustomerLoginForm() {
     },
   });
 
-  const onSubmit = async (formData: FormData) => {
-    setIsPending(true);
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
+  const { mutate, isPending, isSuccess } = useMutation({
+    mutationFn: async (formData: FormData) => {
+      await axios.post("/auth/sign-in", formData);
+    },
+    onSuccess: async () => {
       toast.success("Welcome back!", {
         description: "You have successfully signed in.",
         position: "top-center",
@@ -64,17 +55,46 @@ export default function CustomerLoginForm() {
 
       form.reset();
       await refreshUser();
-      router.push(redirectTo);
-      router.refresh();
-    } catch (error: any) {
-      toast.error("Sign in failed", {
-        description: error.message,
-        position: "top-center",
-      });
-    } finally {
-      setIsPending(false);
-    }
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error)) {
+        const { errors } = error.response?.data || {};
+
+        if (errors) {
+          for (const key in errors) {
+            if (errors[key]) {
+              form.setError(key as keyof FormData, {
+                message: errors[key],
+              });
+            }
+          }
+        } else {
+          toast.error("Sign in failed", {
+            description: "Invalid email or password",
+            position: "top-center",
+          });
+        }
+      } else {
+        toast.error("Sign in failed", {
+          description: "An unexpected error occurred",
+          position: "top-center",
+        });
+      }
+    },
+  });
+
+  const onSubmit = (formData: FormData) => {
+    mutate(formData);
   };
+
+  useEffect(() => {
+    if (isSuccess) {
+      setTimeout(() => {
+        router.push(redirectTo);
+        router.refresh();
+      }, 500);
+    }
+  }, [isSuccess, redirectTo, router]);
 
   return (
     <Card>
