@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Metadata } from "next";
 
-import { createServerClient } from "@/lib/supabase/server";
 import { SITE_CONFIG, STORE_CONFIG } from "@/constants/site";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import ProductCard, { Product } from "@/components/storefront/ProductCard";
+import FeaturedProducts from "./_components/FeaturedProducts";
+import CategoriesGrid from "./_components/CategoriesGrid";
 
 export const metadata: Metadata = {
   title: `${SITE_CONFIG.name} - ${SITE_CONFIG.slogan}`,
@@ -47,92 +47,7 @@ const featuresWhyChooseUs = [
   },
 ];
 
-async function getFeaturedProducts(): Promise<Product[]> {
-  const supabase = await createServerClient();
-
-  const { data: products, error } = await supabase
-    .from("products")
-    .select(
-      `
-      id,
-      name,
-      slug,
-      selling_price,
-      cost_price,
-      image_url,
-      stock,
-      categories (
-        name,
-        slug
-      )
-    `
-    )
-    .eq("published", true)
-    .gt("stock", 0)
-    .order("created_at", { ascending: false })
-    .limit(8);
-
-  if (error || !products) {
-    console.error("Error fetching featured products:", error);
-    console.error("Error details:", JSON.stringify(error, null, 2));
-    return [];
-  }
-
-  console.log("Fetched featured products count:", products.length);
-
-  return products.map((p) => ({
-    id: p.id,
-    name: p.name,
-    slug: p.slug,
-    price: p.selling_price,
-    originalPrice: p.cost_price > p.selling_price ? undefined : undefined,
-    image: p.image_url,
-    category: p.categories?.name || "Uncategorized",
-    categorySlug: p.categories?.slug,
-    inStock: p.stock > 0,
-    rating: 4.5, // placeholder - could add rating system later
-  }));
-}
-
-async function getCategories() {
-  const supabase = await createServerClient();
-
-  const { data: categories, error } = await supabase
-    .from("categories")
-    .select("id, name, slug, image_url")
-    .eq("published", true)
-    .limit(4);
-
-  if (error || !categories) {
-    console.error("Error fetching categories:", error);
-    return [];
-  }
-
-  // Get product count for each category
-  const categoriesWithCount = await Promise.all(
-    categories.map(async (cat) => {
-      const { count } = await supabase
-        .from("products")
-        .select("*", { count: "exact", head: true })
-        .eq("category_id", cat.id)
-        .eq("published", true);
-
-      return {
-        ...cat,
-        productCount: count || 0,
-      };
-    })
-  );
-
-  return categoriesWithCount;
-}
-
-export default async function HomePage() {
-  const [featuredProducts, categories] = await Promise.all([
-    getFeaturedProducts(),
-    getCategories(),
-  ]);
-
+export default function HomePage() {
   return (
     <main className="flex min-h-screen flex-col gap-y-16 bg-gradient-to-b from-muted/50 via-muted/25 to-background">
       {/* Hero Section */}
@@ -208,81 +123,10 @@ export default async function HomePage() {
       </section>
 
       {/* Featured Categories */}
-      {categories.length > 0 && (
-        <section className="py-12 md:py-16">
-          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="mb-8 flex flex-col items-center text-center">
-              <h2 className="font-display text-3xl leading-tight font-bold tracking-tight md:text-4xl">
-                Shop by Category
-              </h2>
-              <div className="mt-2 h-1 w-12 rounded-full bg-primary" />
-              <p className="mt-4 max-w-2xl text-center text-muted-foreground">
-                Find the perfect products for your needs from our curated
-                collections
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
-              {categories.map((category) => (
-                <Link
-                  aria-label={`Browse ${category.name} products`}
-                  className="group relative flex flex-col space-y-4 overflow-hidden rounded-2xl border bg-card shadow transition-all duration-300 hover:shadow-lg"
-                  href={`/products?category=${category.slug}`}
-                  key={category.id}
-                >
-                  <div className="relative aspect-[4/3] overflow-hidden">
-                    <div className="absolute inset-0 z-10 bg-gradient-to-t from-background/80 to-transparent" />
-                    <Image
-                      alt={category.name}
-                      className="object-cover transition duration-300 group-hover:scale-105"
-                      fill
-                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
-                      src={category.image_url}
-                    />
-                  </div>
-                  <div className="relative z-20 -mt-6 p-4">
-                    <div className="mb-1 text-lg font-medium">
-                      {category.name}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {category.productCount} products
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      <CategoriesGrid />
 
       {/* Featured Products */}
-      {featuredProducts.length > 0 && (
-        <section className="bg-muted/50 py-12 md:py-16">
-          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="mb-8 flex flex-col items-center text-center">
-              <h2 className="font-display text-3xl leading-tight font-bold tracking-tight md:text-4xl">
-                Featured Products
-              </h2>
-              <div className="mt-2 h-1 w-12 rounded-full bg-primary" />
-              <p className="mt-4 max-w-2xl text-center text-muted-foreground">
-                Check out our latest and most popular items
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {featuredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-            <div className="mt-10 flex justify-center">
-              <Link href="/products">
-                <Button className="group h-12 px-8" size="lg" variant="outline">
-                  View All Products
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      <FeaturedProducts />
 
       {/* Features Section */}
       <section className="py-12 md:py-16" id="features">
