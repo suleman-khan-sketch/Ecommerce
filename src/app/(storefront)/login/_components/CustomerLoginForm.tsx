@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { createClient } from "@supabase/supabase-js";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 import { useUser } from "@/contexts/UserContext";
 import {
@@ -33,6 +33,7 @@ export default function CustomerLoginForm() {
   const searchParams = useSearchParams();
   const { refreshUser } = useUser();
   const [isPending, setIsPending] = useState(false);
+  const [supabase] = useState(() => createClientComponentClient());
 
   const redirectTo = searchParams.get("redirect_to") || "/";
 
@@ -48,10 +49,6 @@ export default function CustomerLoginForm() {
     setIsPending(true);
 
     try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,

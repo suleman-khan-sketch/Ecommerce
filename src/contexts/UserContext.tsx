@@ -1,10 +1,11 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { createClient } from "@supabase/supabase-js";
+import { User } from "@supabase/supabase-js";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useRouter } from "next/navigation";
 
-import { Tables } from "@/types/supabase";
+import { Database } from "@/types/supabase";
 
 export type UserRole = "admin" | "customer";
 
@@ -35,17 +36,12 @@ const UserContext = createContext<UserContextType>({
   refreshUser: async () => {},
 });
 
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(supabaseUrl, supabaseAnonKey);
-}
-
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [supabase] = useState(() => getSupabaseClient());
+  const [supabase] = useState(() => createClientComponentClient<Database>());
+  const router = useRouter();
 
   const fetchProfile = useCallback(async (currentUser: User | null) => {
     if (!currentUser) {
@@ -83,10 +79,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut();
       setUser(null);
       setProfile(null);
+      router.refresh();
     } catch (error) {
       console.error("Error signing out:", error);
     }
-  }, [supabase]);
+  }, [supabase, router]);
 
   useEffect(() => {
     refreshUser();

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { createClient } from "@supabase/supabase-js";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 import { useUser } from "@/contexts/UserContext";
 import {
@@ -63,6 +63,7 @@ export default function CustomerSignupForm() {
   const router = useRouter();
   const { refreshUser } = useUser();
   const [isPending, setIsPending] = useState(false);
+  const [supabase] = useState(() => createClientComponentClient());
 
   const form = useForm<FormData>({
     resolver: zodResolver(customerSignupSchema),
@@ -84,10 +85,6 @@ export default function CustomerSignupForm() {
     setIsPending(true);
 
     try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
