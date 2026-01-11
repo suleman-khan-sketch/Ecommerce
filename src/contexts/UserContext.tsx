@@ -50,8 +50,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const { data } = await supabase.rpc("get_my_profile");
-      setProfile(data as UserProfile);
+      const { data, error } = await supabase.rpc("get_my_profile");
+
+      if (error) {
+        console.error("Error fetching profile:", error);
+        setProfile(null);
+        return;
+      }
+
+      if (data) {
+        setProfile(data as UserProfile);
+      } else {
+        setProfile(null);
+      }
     } catch (error) {
       console.error("Error fetching profile:", error);
       setProfile(null);
@@ -61,10 +72,24 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error("Error getting session:", error);
+        setUser(null);
+        setProfile(null);
+        setIsLoading(false);
+        return;
+      }
+
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      await fetchProfile(currentUser);
+
+      if (currentUser) {
+        await fetchProfile(currentUser);
+      } else {
+        setProfile(null);
+      }
     } catch (error) {
       console.error("Error refreshing user:", error);
       setUser(null);
@@ -79,6 +104,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut();
       setUser(null);
       setProfile(null);
+      router.push("/");
       router.refresh();
     } catch (error) {
       console.error("Error signing out:", error);
@@ -89,14 +115,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     refreshUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          fetchProfile(currentUser);
+          await fetchProfile(currentUser);
+          router.refresh();
         } else if (event === "SIGNED_OUT") {
           setProfile(null);
+          router.refresh();
         }
 
         setIsLoading(false);
@@ -106,7 +134,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase, refreshUser, fetchProfile]);
+  }, [supabase, router, refreshUser, fetchProfile]);
 
   const value = {
     user,
