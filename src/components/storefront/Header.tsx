@@ -1,16 +1,16 @@
 "use client";
 
-import { Menu, X, ShoppingCart } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { SITE_CONFIG } from "@/constants/site";
 import { useCart } from "@/contexts/CartContext";
 import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -30,12 +30,20 @@ const navigation = [
 
 export default function StorefrontHeader() {
   const pathname = usePathname();
-  const { user, profile, isLoading } = useUser();
+  const router = useRouter();
+  const { user, profile, isLoading, signOut } = useUser();
   const { itemCount } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isCustomer = profile?.role === "customer";
   const isAdmin = profile?.role === "admin";
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success("Signed out successfully");
+    router.push("/");
+    router.refresh();
+  };
 
   return (
     <header
@@ -147,8 +155,8 @@ export default function StorefrontHeader() {
                         <DropdownMenuSeparator />
                       </>
                     )}
-                    <DropdownMenuItem asChild>
-                      <Link href="/auth/sign-out">Sign Out</Link>
+                    <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                      Sign Out
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

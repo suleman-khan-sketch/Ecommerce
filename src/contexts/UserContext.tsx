@@ -1,20 +1,17 @@
 "use client";
 
-import { createContext, useContext, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { User } from "@supabase/supabase-js";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { User, Session } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
 import { Tables } from "@/types/supabase";
-import { createBrowserClient } from "@/lib/supabase/client";
 
-// Simplified roles: admin and customer only
 export type UserRole = "admin" | "customer";
 
 type UserProfile = {
   name: string | null;
   image_url: string | null;
   role: UserRole | null;
-  // Customer-specific fields
   store_name?: string | null;
   address?: string | null;
   phone?: string | null;
@@ -26,50 +23,100 @@ type UserContextType = {
   user: User | null;
   profile: UserProfile | null;
   isLoading: boolean;
+  signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 const UserContext = createContext<UserContextType>({
   user: null,
   profile: null,
   isLoading: true,
+  signOut: async () => {},
+  refreshUser: async () => {},
 });
 
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createClient(supabaseUrl, supabaseAnonKey);
+}
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createBrowserClient();
-  const queryClient = useQueryClient();
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [supabase] = useState(() => getSupabaseClient());
+
+  const fetchProfile = useCallback(async (currentUser: User | null) => {
+    if (!currentUser) {
+      setProfile(null);
+      return;
+    }
+
+    try {
+      const { data } = await supabase.rpc("get_my_profile");
+      setProfile(data as UserProfile);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      setProfile(null);
+    }
+  }, [supabase]);
+
+  const refreshUser = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      await fetchProfile(currentUser);
+    } catch (error) {
+      console.error("Error refreshing user:", error);
+      setUser(null);
+      setProfile(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [supabase, fetchProfile]);
+
+  const signOut = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setProfile(null);
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  }, [supabase]);
 
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-    });
+    refreshUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          fetchProfile(currentUser);
+        } else if (event === "SIGNED_OUT") {
+          setProfile(null);
+        }
+
+        setIsLoading(false);
+      }
+    );
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase, queryClient]);
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["user-profile"],
-    queryFn: async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) {
-        return { user: null, role: null };
-      }
-
-      const { data: profile } = await supabase.rpc("get_my_profile");
-      return { user: session.user, profile: profile as UserProfile };
-    },
-    staleTime: Infinity,
-  });
+  }, [supabase, refreshUser, fetchProfile]);
 
   const value = {
-    user: data?.user ?? null,
-    profile: data?.profile ?? null,
+    user,
+    profile,
     isLoading,
+    signOut,
+    refreshUser,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

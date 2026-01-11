@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { createClient } from "@supabase/supabase-js";
 
-import { createBrowserClient } from "@/lib/supabase/client";
+import { useUser } from "@/contexts/UserContext";
 import {
   Form,
   FormControl,
@@ -31,8 +31,8 @@ type FormData = z.infer<typeof loginSchema>;
 export default function CustomerLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
-  const supabase = createBrowserClient();
+  const { refreshUser } = useUser();
+  const [isPending, setIsPending] = useState(false);
 
   const redirectTo = searchParams.get("redirect_to") || "/";
 
@@ -44,8 +44,14 @@ export default function CustomerLoginForm() {
     },
   });
 
-  const { mutate, isPending, isSuccess } = useMutation({
-    mutationFn: async (formData: FormData) => {
+  const onSubmit = async (formData: FormData) => {
+    setIsPending(true);
+
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
@@ -55,35 +61,24 @@ export default function CustomerLoginForm() {
         throw new Error(error.message);
       }
 
-      return data;
-    },
-    onSuccess: () => {
       toast.success("Welcome back!", {
         description: "You have successfully signed in.",
         position: "top-center",
       });
 
       form.reset();
-      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-    },
-    onError: (error) => {
+      await refreshUser();
+      router.push(redirectTo);
+      router.refresh();
+    } catch (error: any) {
       toast.error("Sign in failed", {
         description: error.message,
         position: "top-center",
       });
-    },
-  });
-
-  const onSubmit = (formData: FormData) => {
-    mutate(formData);
-  };
-
-  useEffect(() => {
-    if (isSuccess) {
-      router.push(redirectTo);
-      router.refresh();
+    } finally {
+      setIsPending(false);
     }
-  }, [isSuccess, router, redirectTo]);
+  };
 
   return (
     <Card>
@@ -118,7 +113,7 @@ export default function CustomerLoginForm() {
                   <FormControl>
                     <Input
                       type="password"
-                      placeholder="••••••••"
+                      placeholder="********"
                       autoComplete="current-password"
                       {...field}
                     />

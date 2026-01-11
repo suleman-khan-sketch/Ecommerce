@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { createClient } from "@supabase/supabase-js";
 
-import { createBrowserClient } from "@/lib/supabase/client";
+import { useUser } from "@/contexts/UserContext";
 import {
   Form,
   FormControl,
@@ -22,7 +22,6 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import {
   Card,
   CardContent,
@@ -33,7 +32,6 @@ import {
 
 const customerSignupSchema = z
   .object({
-    // Account info
     email: z.string().email("Please enter a valid email address"),
     password: z
       .string()
@@ -42,17 +40,11 @@ const customerSignupSchema = z
       .regex(/[a-z]/, "Password must contain at least one lowercase letter")
       .regex(/[0-9]/, "Password must contain at least one number"),
     confirmPassword: z.string(),
-
-    // Personal info
     name: z.string().min(2, "Name must be at least 2 characters"),
     phone: z.string().min(10, "Please enter a valid phone number"),
-
-    // Business info
     storeName: z.string().min(2, "Store name must be at least 2 characters"),
     ein: z.string().optional(),
     address: z.string().min(10, "Please enter your full address"),
-
-    // Agreements
     ageVerified: z.boolean().refine((val) => val === true, {
       message: "You must confirm you are 21 years or older",
     }),
@@ -69,8 +61,8 @@ type FormData = z.infer<typeof customerSignupSchema>;
 
 export default function CustomerSignupForm() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const supabase = createBrowserClient();
+  const { refreshUser } = useUser();
+  const [isPending, setIsPending] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(customerSignupSchema),
@@ -88,9 +80,14 @@ export default function CustomerSignupForm() {
     },
   });
 
-  const { mutate, isPending, isSuccess } = useMutation({
-    mutationFn: async (formData: FormData) => {
-      // 1. Sign up the user with Supabase Auth
+  const onSubmit = async (formData: FormData) => {
+    setIsPending(true);
+
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -109,7 +106,6 @@ export default function CustomerSignupForm() {
         throw new Error("Failed to create account");
       }
 
-      // 2. Create customer profile by inserting directly
       const { error: profileError } = await supabase.from("customers").insert({
         name: formData.name,
         email: formData.email,
@@ -122,45 +118,31 @@ export default function CustomerSignupForm() {
       });
 
       if (profileError) {
-        // If profile creation fails, we should handle this gracefully
         console.error("Profile creation error:", profileError);
-        // The user is still created, they can complete profile later
       }
 
-      return authData;
-    },
-    onSuccess: () => {
       toast.success("Account Created!", {
-        description: "Please check your email to verify your account.",
+        description: "You have successfully signed up.",
         position: "top-center",
       });
 
       form.reset();
-      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-    },
-    onError: (error) => {
+      await refreshUser();
+      router.push("/");
+      router.refresh();
+    } catch (error: any) {
       toast.error("Signup Failed", {
         description: error.message,
         position: "top-center",
       });
-    },
-  });
-
-  const onSubmit = (formData: FormData) => {
-    mutate(formData);
-  };
-
-  useEffect(() => {
-    if (isSuccess) {
-      // Redirect to home or verification page
-      router.push("/");
+    } finally {
+      setIsPending(false);
     }
-  }, [isSuccess, router]);
+  };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Account Information */}
         <Card>
           <CardHeader>
             <CardTitle>Account Information</CardTitle>
@@ -198,7 +180,7 @@ export default function CustomerSignupForm() {
                     <FormControl>
                       <Input
                         type="password"
-                        placeholder="••••••••"
+                        placeholder="********"
                         autoComplete="new-password"
                         {...field}
                       />
@@ -217,7 +199,7 @@ export default function CustomerSignupForm() {
                     <FormControl>
                       <Input
                         type="password"
-                        placeholder="••••••••"
+                        placeholder="********"
                         autoComplete="new-password"
                         {...field}
                       />
@@ -230,7 +212,6 @@ export default function CustomerSignupForm() {
           </CardContent>
         </Card>
 
-        {/* Personal Information */}
         <Card>
           <CardHeader>
             <CardTitle>Personal Information</CardTitle>
@@ -278,7 +259,6 @@ export default function CustomerSignupForm() {
           </CardContent>
         </Card>
 
-        {/* Business Information */}
         <Card>
           <CardHeader>
             <CardTitle>Business Information</CardTitle>
@@ -344,7 +324,6 @@ export default function CustomerSignupForm() {
           </CardContent>
         </Card>
 
-        {/* Agreements */}
         <Card>
           <CardHeader>
             <CardTitle>Agreements</CardTitle>
