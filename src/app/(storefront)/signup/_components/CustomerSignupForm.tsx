@@ -6,8 +6,7 @@ import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-
+import { createBrowserClient } from "@/lib/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import {
   Form,
@@ -63,7 +62,7 @@ export default function CustomerSignupForm() {
   const router = useRouter();
   const { refreshUser } = useUser();
   const [isPending, setIsPending] = useState(false);
-  const [supabase] = useState(() => createClientComponentClient());
+  const [supabase] = useState(() => createBrowserClient());
 
   const form = useForm<FormData>({
     resolver: zodResolver(customerSignupSchema),

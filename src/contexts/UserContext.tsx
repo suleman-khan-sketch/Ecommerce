@@ -2,9 +2,9 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { User } from "@supabase/supabase-js";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
 
+import { createBrowserClient } from "@/lib/supabase/client";
 import { Database } from "@/types/supabase";
 
 export type UserRole = "admin" | "super_admin" | "cashier" | "customer";
@@ -40,7 +40,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [supabase] = useState(() => createClientComponentClient<Database>());
+  const [supabase] = useState(() => createBrowserClient());
   const router = useRouter();
 
   const fetchProfile = useCallback(async (currentUser: User | null) => {
@@ -72,18 +72,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
 
       if (error) {
-        console.error("Error getting session:", error);
+        console.error("Error getting user:", error);
         setUser(null);
         setProfile(null);
         setIsLoading(false);
         return;
       }
 
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
+      setUser(currentUser ?? null);
 
       if (currentUser) {
         await fetchProfile(currentUser);

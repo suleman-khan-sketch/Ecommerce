@@ -1,33 +1,47 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@supabase/ssr";
 
 import { passwordResetFormSchema } from "@/app/(authentication)/forgot-password/_components/schema";
 import validateFormData from "@/helpers/validateFormData";
 import { siteUrl } from "@/constants/siteUrl";
 
 export async function POST(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
+  const cookieStore = await cookies();
 
-  // Get form fields
+  const response = NextResponse.json({ success: true });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
   const { email } = await request.json();
 
-  // Server side form validation
   const { errors } = validateFormData(passwordResetFormSchema, {
     email,
   });
 
-  // If there are validation errors, return a JSON response with the errors and a 401 status.
   if (errors) {
     return NextResponse.json({ errors }, { status: 401 });
   }
 
-  // Attempt to reset the password for the provided email using Supabase's resetPasswordForEmail method.
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl}/update-password`, // Redirect URL when the "reset password" link is clicked on the email
+    redirectTo: `${siteUrl}/update-password`,
   });
 
-  // If there is an error during the password reset, return a JSON response with the error message and a 401 status.
   if (error) {
     return NextResponse.json(
       {
@@ -39,6 +53,5 @@ export async function POST(request: Request) {
     );
   }
 
-  // If the password reset is successful, return a JSON response indicating success.
-  return NextResponse.json({ success: true });
+  return response;
 }

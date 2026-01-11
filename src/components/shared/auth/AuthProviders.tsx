@@ -2,8 +2,7 @@
 
 import { FaGithub } from "react-icons/fa6";
 import { FcGoogle } from "react-icons/fc";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-
+import { createBrowserClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { siteUrl } from "@/constants/siteUrl";
 
@@ -14,7 +13,7 @@ type Props = {
 };
 
 export default function AuthProviders({ authType = "Login" }: Props) {
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserClient();
 
   // Handle authentication with OAuth providers.
   const handleAuth = (authProvider: AuthProvider) => {

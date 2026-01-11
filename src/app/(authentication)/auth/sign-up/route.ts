@@ -1,18 +1,35 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@supabase/ssr";
 
 import { signupFormSchema } from "@/app/(authentication)/signup/_components/schema";
 import validateFormData from "@/helpers/validateFormData";
 
 export async function POST(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
+  const cookieStore = await cookies();
 
-  // Get form fields
+  const response = NextResponse.json({ success: true });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
   const { name, email, password, confirmPassword, privacy } =
     await request.json();
 
-  // Server side form validation
   const { errors } = validateFormData(signupFormSchema, {
     name,
     email,
@@ -21,12 +38,10 @@ export async function POST(request: Request) {
     privacy,
   });
 
-  // If there are validation errors, return a JSON response with the errors and a 401 status.
   if (errors) {
     return NextResponse.json({ errors }, { status: 401 });
   }
 
-  // Attempt to sign up the user with the provided email and password using Supabase's signUp method.
   const { error } = await supabase.auth.signUp({
     email,
     password,
@@ -37,7 +52,6 @@ export async function POST(request: Request) {
     },
   });
 
-  // If there is an error during sign-up, return a JSON response with the error message and a 401 status.
   if (error) {
     return NextResponse.json(
       {
@@ -49,6 +63,5 @@ export async function POST(request: Request) {
     );
   }
 
-  // If sign-up is successful, return a JSON response indicating success.
-  return NextResponse.json({ success: true });
+  return response;
 }
